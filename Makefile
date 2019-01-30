@@ -1,10 +1,18 @@
-# Constants
+# constants
+# default binary name to current directory name
 OUTPUT_NAME=$(shell basename $(CURDIR))
-IMPORT_PATH=$(subst $(GOPATH)/src/,,$(CURDIR))
+# default go source directory
+SOURCE_DIRECTORY=$(GOPATH)/src
+# default build output directory
 OUTPUT_DIRECTORY=$(CURDIR)/build
-# OUTPUT_DIRECTORY=$(HOME)/.cache/go-docker-build/$(OUTPUT_NAME)
+# substracting GOPATH from source directory to deduct import path. i.e. github.com/user/project
+IMPORT_PATH=$(subst $(SOURCE_DIRECTORY)/,,$(CURDIR))
+# GOPATH must be set
+ifndef GOPATH
+$(error GOPATH is not set)
+endif
 
-# Host OS Detection
+# host os detection
 HOST_OS=unknown
 ifeq ($(OS),Windows_NT)
 	HOST_OS=windows
@@ -18,45 +26,88 @@ else
 	endif
 endif
 
-
+# default to test and build
 all: test build
 
+# check build environment consistency
 check:
 	@if [ "$(HOST_OS)" = 'unknown' ]; then echo "FATAL: Could not detect HOST_OS"; exit 1; fi
 
+# install build dependencies
 deps: check
-	go get -u golang.org/x/tools/cmd/goimports
+	go get -d
+	go get golang.org/x/tools/cmd/goimports
+	go get github.com/kisielk/errcheck
+	go get github.com/maruel/panicparse
+	go get golang.org/x/lint/golint
 
+# install development build dependencies
 deps-dev: check deps
-	go get -u github.com/spf13/cobra/cobra
+	go get golang.org/x/tools/cmd/gorename
+	go get github.com/spf13/cobra/cobra
 
-style: check
-	goimports -l -w .
+# format go code
+format: check
+	-goimports -l -w .
 
-build: check style
+# run golint on all source tree
+lint: check
+	golint ./...
+
+# check for untested errors in code
+errcheck: check
+	-errcheck ./...
+
+# build
+build: check format lint errcheck
 	go build -v -o "$(OUTPUT_DIRECTORY)/$(HOST_OS)/$(OUTPUT_NAME)"
-	@du -h "$(OUTPUT_DIRECTORY)/$(HOST_OS)/$(OUTPUT_NAME)"
-	
-build-docker: check
-	mkdir -p "$(OUTPUT_DIRECTORY)/linux"
-	docker run --rm -it                         \
-		-v "$(GOPATH)/src":/go/src              \
-		-v "$(OUTPUT_DIRECTORY)/linux":/build   \
-		-w "/go/src/$(IMPORT_PATH)"             \
-		golang:latest                           \
-		make build-docker-linux
-	@du -h "$(OUTPUT_DIRECTORY)/linux/$(OUTPUT_NAME)"
+	@du -h "$(OUTPUT_DIRECTORY)/$(HOST_OS)/$(OUTPUT_NAME)" | sed 's|$(OUTPUT_DIRECTORY)/||'
 
-build-docker-linux: check deps
+# install into "$(GOPATH)/bin"
+install: build
+	@cp "$(OUTPUT_DIRECTORY)/$(HOST_OS)/$(OUTPUT_NAME)" "$(GOPATH)/bin/"
+
+# build linux binary inside a docker container
+docker-build: check
+	mkdir -p "$(OUTPUT_DIRECTORY)/linux"
+	docker run --rm -it                        \
+		-v "$(GOPATH)/src":/go/src               \
+		-v "$(OUTPUT_DIRECTORY)/linux":/build    \
+		-w "/go/src/$(IMPORT_PATH)"              \
+		golang:latest                            \
+		make docker-build-linux
+	@du -h "$(OUTPUT_DIRECTORY)/linux/$(OUTPUT_NAME)" | sed 's|$(OUTPUT_DIRECTORY)/||'
+
+# run linux binary inside a docker container
+# use the ARGS variable to pass arguments
+# example: make docker-run ARGS='--help'
+docker-run: check
+	docker run --rm -it                         \
+		-v "$(OUTPUT_DIRECTORY)/linux":/build     \
+		-v "$(SPARKS_SDK_ROOT)":/sparks           \
+		golang:latest                             \
+		bash -c "/build/$(OUTPUT_NAME) $(ARGS)"
+
+# called by docker-build above to build the linux binary inside a docker container
+docker-build-linux: check deps
 	go build -v -o "/build/$(OUTPUT_NAME)"
 
+# run tests
 test: check
 	go test -v ./...
 
+# clean build artefacts
 clean: check
 	go clean
 	rm -rf "$(OUTPUT_DIRECTORY)"
 
+# run built binary
+# use the ARGS variable to pass arguments
+# example: make run ARGS='--help'
 run: check build
-	"$(OUTPUT_DIRECTORY)/$(HOST_OS)/$(OUTPUT_NAME)"
+	"$(OUTPUT_DIRECTORY)/$(HOST_OS)/$(OUTPUT_NAME)" $(ARGS) 2>&1 | panicparse
 
+# build and run inside a docker container
+# use the ARGS variable to pass arguments
+# example: make rund ARGS='--help'
+rund: check docker-build docker-run
