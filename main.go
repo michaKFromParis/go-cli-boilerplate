@@ -16,10 +16,8 @@ package main
 
 import (
 	"github.com/michaKFromParis/go-cli-boilerplate/cmd"
-	"github.com/michaKFromParis/go-cli-boilerplate/sys"
 )
 
 func main() {
-	sys.Init()
 	cmd.Execute()
 }

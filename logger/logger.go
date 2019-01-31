@@ -10,13 +10,12 @@ import (
 	"time"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/michaKFromParis/sparks/conf"
 	"github.com/michaKFromParis/sparks/sys"
 )
 
 // Init is called at the start of the program to intialize logrus
 // with a custom formatter
-func Init() {
+func Init(level log.Level) {
 
 	log.SetFormatter(&Formatter{
 		HideKeys:        true,
@@ -25,25 +24,16 @@ func Init() {
 		TimestampFormat: "15:04:05",
 	})
 	log.SetOutput(os.Stdout)
-
-	log.SetLevel(log.TraceLevel)
-
-	if conf.Verbose {
-		log.SetLevel(log.DebugLevel)
-	} else if conf.VeryVerbose {
-		log.SetLevel(log.TraceLevel)
-		sys.ExecuteStreamingToStdout = true
-	} else {
-		log.SetLevel(log.InfoLevel)
-	}
+	SetVerboseLevel(level)
 	log.Infof("sparks log level %s", strings.Title(log.GetLevel().String()))
-	// log.Trace("Trace Sample")
-	// log.Debug("Debug Sample")
-	// log.Info("Info Sample")
-	// log.Warn("Warning Sample")
-	// log.Error("Error Sample")
-	// log.Fatal("Critical Sample")
-	// log.Panic("Panic Sample")
+}
+
+// SetVerboseLevel sets the logrus verbose level (Debug, Trace ...)
+func SetVerboseLevel(level log.Level) {
+	log.SetLevel(level)
+	if level == log.TraceLevel {
+		sys.ExecuteStreamingToStdout = true
+	}
 }
 
 // modified FROM https://github.com/antonfisher/nested-logrus-formatter/blob/master/formatter.go
