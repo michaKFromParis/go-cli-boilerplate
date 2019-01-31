@@ -14,10 +14,10 @@
 
 package main
 
-import "github.com/michaKFromParis/sparks/cmd"
-import "github.com/michaKFromParis/sparks/sys"
+import (
+	"github.com/michaKFromParis/go-cli-boilerplate/cmd"
+)
 
 func main() {
-	sys.Init()
 	cmd.Execute()
 }

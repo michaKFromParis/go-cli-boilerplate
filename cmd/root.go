@@ -17,27 +17,43 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
-	homedir "github.com/mitchellh/go-homedir"
+	log "github.com/Sirupsen/logrus"
+	"github.com/michaKFromParis/go-cli-boilerplate/logger"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
-var cfgFile string
+var verbose = false
+var veryVerbose = false
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "sparks",
-	Short: "A brief description of your application",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	PersistentPreRun: PreRunAllCommands,
+	Use:              filepath.Base(os.Args[0]),
+	Long: filepath.Base(os.Args[0]) + `
+	
+	A boilerplate for go command line applications
+	`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	//	Run: func(cmd *cobra.Command, args []string) { },
+}
+
+// PreRunAllCommands is called by cobra for every commands just before executing a command
+func PreRunAllCommands(cmd *cobra.Command, args []string) {
+	if veryVerbose {
+		logger.Init(log.TraceLevel)
+	} else if verbose {
+		logger.Init(log.DebugLevel)
+	} else {
+		logger.Init(log.InfoLevel)
+	}
+}
+
+// SetVersion passes the current version to the cli
+func SetVersion(version string, commit string, date string) {
+	rootCmd.Version = version
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -50,40 +66,7 @@ func Execute() {
 }
 
 func init() {
-	cobra.OnInitialize(initConfig)
-
-	// Here you will define your flags and configuration settings.
-	// Cobra supports persistent flags, which, if defined here,
-	// will be global for your application.
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.sparks.yaml)")
-
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-}
-
-// initConfig reads in config file and ENV variables if set.
-func initConfig() {
-	if cfgFile != "" {
-		// Use config file from the flag.
-		viper.SetConfigFile(cfgFile)
-	} else {
-		// Find home directory.
-		home, err := homedir.Dir()
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-
-		// Search config in home directory with name ".sparks" (without extension).
-		viper.AddConfigPath(home)
-		viper.SetConfigName(".sparks")
-	}
-
-	viper.AutomaticEnv() // read in environment variables that match
-
-	// If a config file is found, read it in.
-	if err := viper.ReadInConfig(); err == nil {
-		fmt.Println("Using config file:", viper.ConfigFileUsed())
-	}
+	rootCmd.Flags().SortFlags = false
+	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "set log verbose level to debug")
+	rootCmd.PersistentFlags().BoolVarP(&veryVerbose, "v", "", false, "set log verbose level to trace")
 }
