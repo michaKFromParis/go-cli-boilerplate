@@ -33,7 +33,7 @@ var rootCmd = &cobra.Command{
 	Use:              filepath.Base(os.Args[0]),
 	Long: filepath.Base(os.Args[0]) + `
 	
-	A boilerplate for a go command line application
+	A boilerplate for go command line applications
 	`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
